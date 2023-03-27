@@ -1,0 +1,91 @@
+---
+- name: Create VM Linux in Azure
+  hosts: localhost
+  connection: local
+  
+  collections:
+    - azure.azcollection
+  
+  tasks:
+    - name: Creating resource group
+      azure_rm_resourcegroup:
+        name: "{{ rg }}"
+        location: "{{ location }}"
+        append_tags: true
+        tags: "{{ tags | from_json }}"
+
+    - name: Create virtual network
+      azure_rm_virtualnetwork:
+        resource_group: "{{ rg }}"
+        name: "{{ vnet_name }}"
+        address_prefixes: "{{ vnet_prefix }}"
+        append_tags: true
+        tags: "{{ tags | from_json }}"
+    
+    - name: Add subnet
+      azure_rm_subnet:
+        resource_group: "{{ rg }}"
+        name: "{{ subnet_name }}"
+        address_prefix: "{{ subnet_prefix }}"
+        virtual_network: "{{ vnet_name }}"
+    
+    - name: Create public ip
+      azure_rm_publicipaddress:
+        resource_group: "{{ rg }}"
+        allocation_method: Static
+        name: "{{ public_ip_name }}"
+        append_tags: true
+        tags: "{{ tags | from_json }}"
+      when: public_ip is defined and public_ip|bool
+
+
+    - name: Create security group that allows SSH and ICMP
+      azure_rm_securitygroup:
+        name: "{{ security_group_name }}"
+        resource_group: "{{ rg }}"
+        rules:
+        - name: SSH
+          protocol: Tcp
+          destination_port_range: 22
+          access: Allow
+          priority: 105
+          direction: Inbound
+        - name: ICMP
+          protocol: Icmp
+          priority: 106
+        append_tags: true
+        tags: "{{ tags | from_json }}"
+    
+    - name: Create NIC
+      azure_rm_networkinterface:
+        resource_group: "{{ rg }}"
+        name: "{{ nic_name }}"
+        virtual_network: "{{ vnet_name }}"
+        subnet: "{{ subnet_name }}"
+        security_group: "{{ security_group_name }}"
+        ip_configurations:
+        - name: ipconfig1
+          public_ip_address_name: "{{ public_ip_name }}"
+          primary: True
+        append_tags: true
+        tags: "{{ tags | from_json }}"
+    
+    - name: Create virtual machine
+      azure_rm_virtualmachine:
+        resource_group: "{{ rg }}"
+        name: "{{ vm_name }}"
+        vm_size: "Standard_DS1_v2"
+        managed_disk_type: "Standard_LRS"
+        admin_username: tsystems
+        admin_password: "{{ password }}"
+        network_interfaces: "{{ nic_name }}"
+        os_type: Linux
+        image:
+          offer: CentOS
+          publisher: OpenLogic
+          sku: '7.5'
+          version: latest
+        append_tags: true
+        tags: "{{ tags | from_json }}"
+      no_log: true
+
