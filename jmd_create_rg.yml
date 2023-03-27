@@ -17,5 +17,5 @@
         name: "{{ rg }}"
         location: "{{ location }}"
         append_tags: true
-        tags: "{{ tags | from_json }}"
+    #    tags: "{{ tags | from_json }}"
      
